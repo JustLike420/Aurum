@@ -29,6 +29,15 @@ const PAGE_SIZE = 20;
  * two pages. */
 type ReportMode = "category" | "tag";
 
+/** Which side of the ledger the tag report shows. A category carries its own
+ * kind, so in category mode filtering the transaction list by `category_id`
+ * already pins the type implicitly; a tag carries none and can legitimately
+ * sit on both sides of the ledger, so every part of the tag report — chart,
+ * ranking *and* transaction list — has to be pinned to the same side
+ * explicitly. One constant rather than four literals so they can't drift
+ * apart and leave the list showing income the totals above it don't count. */
+const TAG_REPORT_KIND = "expense" as const;
+
 export function ReportsPage() {
   const { t, language } = useTranslation();
   const now = new Date();
@@ -74,17 +83,20 @@ export function ReportsPage() {
   const { startDate, endDate } = computeRange(range, customRange);
   const isTagMode = mode === "tag";
   const { data: ranking, isLoading: isRankingLoading } = useCategoryRanking("expense", startDate, endDate);
-  const { data: tagRanking, isLoading: isTagRankingLoading } = useTagRanking("expense", startDate, endDate);
+  const { data: tagRanking, isLoading: isTagRankingLoading } = useTagRanking(TAG_REPORT_KIND, startDate, endDate);
   const { data: report, isLoading: isReportLoading } = useCategorySpendingReport(categoryId, startDate, endDate);
   const { data: tagReport, isLoading: isTagReportLoading } = useTagSpendingReport(
     isTagMode ? tagId : null,
-    "expense",
+    TAG_REPORT_KIND,
     startDate,
     endDate
   );
   const { data: transactions, isLoading: isTransactionsLoading } = useTransactions({
     category_id: isTagMode ? undefined : categoryId ?? undefined,
     tag_id: isTagMode ? tagId ?? undefined : undefined,
+    // Category mode needs no type filter: the chosen category's own kind
+    // already restricts which transactions can carry it.
+    type: isTagMode ? TAG_REPORT_KIND : undefined,
     start_date: startDate,
     end_date: endDate,
     sort,
